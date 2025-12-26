@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from moviepy import VideoFileClip
 from PIL import Image
@@ -6,6 +5,9 @@ from PIL import Image
 
 # ___________________________________________________________________
 # Constants
+
+
+ARCHIVE_EXT = {".zip", ".tar", ".tar.gz", ".tgz"}
 
 
 # ___________________________________________________________________
@@ -52,14 +54,12 @@ def _is_media(path: Path) -> bool:
 # Check Duplicates
 
 
-def _already_exists(name: Path, output_dir: Path) -> bool:
+def _already_exists(name: str, output_dir: Path) -> bool:
     """
     Check whether a file with the given base name already exists in the output
     directory, regardless of file extension.
     """
-    name = name.stem.lower()
-
-    return any(f.is_file() and f.stem.lower() == name for f in output_dir.iterdir())
+    return any(f.is_file() and f.stem.lower() == name.lower() for f in output_dir.iterdir())
 
 
 # ___________________________________________________________________
@@ -67,5 +67,4 @@ def _already_exists(name: Path, output_dir: Path) -> bool:
 
 def _is_archive(path: Path) -> bool:
     """Check if the given path is a supported archive file and is valid."""
-    EXT = {".zip", ".tar", ".tar.gz", ".tgz"}
-    return path.suffix.lower() in EXT
+    return path.suffix.lower() in ARCHIVE_EXT

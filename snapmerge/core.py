@@ -1,8 +1,7 @@
-import os
-import zipfile
 import tempfile
 from pathlib import Path
 import shutil
+from contextlib import contextmanager
 
 from PIL import Image
 from moviepy import VideoFileClip, ImageClip, CompositeVideoClip
@@ -51,24 +50,13 @@ def get_media_and_overlay_file(dir_path: Path) -> tuple[Path, Path]:
 # ___________________________________________________________________
 # Combine Media in ZIP
 
-
-def _process_archive(archive_path: Path, output_path: Path) -> Path:
+@contextmanager
+def _unpack_archive(archive_path: Path):
     """
-    Extract an archive and merge its media file with its overlay.
+    Unpack an archive into a temporary directory and yield the directory path.
 
-    Supported archive formats depend on ``shutil.unpack_archive`` and
-    typically include ZIP and TAR-based archives.
-
-    Args:
-        archive_path (Path): Path to the archive file containing the media and overlay.
-        output_path (Path): Target path (without extension) for the merged output file.
-
-    Returns:
-        Path: Path to the generated output file.
-
-    Raises:
-        FileNotFoundError: If the archive does not exist or is not a file.
-        ValueError: If the archive cannot be unpacked, does not contain exactly two files, or does not contain a valid media/overlay pair.
+    The caller is responsible for processing the extracted files.
+    The temporary directory is cleaned up automatically.
     """
     if not archive_path.exists() or not archive_path.is_file():
         raise FileNotFoundError(f"Archive dir not found: {archive_path}")
@@ -82,9 +70,7 @@ def _process_archive(archive_path: Path, output_path: Path) -> Path:
         if len(list(tmp_path.iterdir())) != 2:
             raise ValueError(f"Archive must contain exactly 2 files: {archive_path}")
         
-        # TODO: move combine to parent function. add manual temp cleanup.
-        media, overlay = get_media_and_overlay_file(tmp_path)
-        return combine_media(media, overlay, output_path)
+        yield tmp_path
 
 
 def combine_media(media_path: Path, overlay_path: Path, output_path: Path) -> Path:
@@ -160,10 +146,10 @@ def process_data(input_dir: Path, output_dir: Path, overwrite: bool = False ):
     Processes media files from the input directory and saves the results to the output directory.
 
     This function handles various types of media files, including:
-    - MP4 and MOV video files, which are copied directly to the output directory.
-    - Image files, which are copied with an additional extension added to the filename.
-    - ZIP archives, which are unzipped, and the contained media files (JPG or MP4) are combined with an overlay PNG.
-    - Folders containing media and overlay files, which are processed similarly to ZIP files.
+    - Video files, which are copied directly to the output directory.
+    - Image files, which are copied with the missing extension added to the filename.
+    - archive files, which are unzipped, and the contained media files (image or video) are combined with an overlay.
+    - Folders containing media and overlay files, which are processed similarly to archives.
     
     Args:
         input_dir (Path): The directory containing the media files to be processed.
@@ -172,11 +158,7 @@ def process_data(input_dir: Path, output_dir: Path, overwrite: bool = False ):
     
     Raises:
         ValueError: If the input directory does not exist or is not a directory.
-        ValueError: If an unsupported file type is encountered during processing.
-    
-    Notes:
-        - The function will skip files that already exist in the output directory unless `overwrite` is set to True.
-        - The function currently supports MP4, MOV, JPG, and ZIP file types.
+        ValueError: If an unsupported file type is encountered during processing.    
     """
     if not input_dir.exists() or not input_dir.is_dir():
         raise ValueError(f"Input directory does not exist: {input_dir}")
@@ -186,11 +168,13 @@ def process_data(input_dir: Path, output_dir: Path, overwrite: bool = False ):
     for entry in input_dir.iterdir():
         base_name = entry.stem
 
-        if _already_exists(entry, output_dir) and not overwrite:
+        if _already_exists(base_name, output_dir) and not overwrite:
             continue
 
         if _is_archive(entry):
-            _process_archive(entry, output_dir / base_name)
+            with _unpack_archive(entry) as temp:
+                media, overlay = get_media_and_overlay_file(temp)
+                combine_media(media, overlay, output_dir / base_name)
 
         elif entry.is_dir():
             media, overlay = get_media_and_overlay_file(entry)
@@ -200,9 +184,8 @@ def process_data(input_dir: Path, output_dir: Path, overwrite: bool = False ):
             shutil.copy2(entry, output_dir / entry.name)
 
         elif _is_image(entry):
-            # TODO: this silently assumes not extension in file name
             ext = _get_image_extension(entry)
-            shutil.copy2(entry, output_dir / f"{entry.name}.{ext}")
+            shutil.copy2(entry, output_dir / f"{entry.stem}.{ext}")
 
         else:
             raise ValueError(f"Unsupported file: {entry}")
