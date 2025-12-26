@@ -1,10 +1,9 @@
 """
 SnapMerge
 
-This module reconstructs exported Snapchat media by combining the original
-camera media (image or video) with its corresponding Snapchat overlay.
-It is designed for use with data obtained from Snapchat's official
-"Download My Data" export.
+[SnapMerge](https://github.com/JaxRaffnix/SnapMerge) is a Python tool for merging Snapchat exported media. It combines media files with their overlay elements into single file, making it easier to view and manage your Snapchat memories. Additionally, the directory is flattened for simpler organization and missing file extensions are added.
+
+This tool was last tested with the official Snapchat “Download My Data” export as of December 2025. If Snapchat changes its export format, please open an issue on [GitHub](https://github.com/JaxRaffnix/SnapMerge/issues).
 
 """
 

@@ -1,49 +1,47 @@
 # SnapMerge
 
-SnapMerge is a Python Media Merger for Snapchat exported data. It combines media files with their overlay elements into single files, making it easier to view and manage your Snapchat memories. Additionally, the directory is flattened for simpler organization.
+[SnapMerge](https://github.com/JaxRaffnix/SnapMerge) is a Python tool for merging Snapchat exported media. It combines media files with their overlay elements into single file, making it easier to view and manage your Snapchat memories. Additionally, the directory is flattened for simpler organization and missing file extensions are added.
 
-This tool was last tested with the official Snapchat “Download My Data” export as of December 2025. Should there be a change in Snapchat's export format, please open an issue on (GitHub)[https://github.com/JaxRaffnix/SnapMerge/issues].
+This tool was last tested with the official Snapchat “Download My Data” export as of December 2025. If Snapchat changes its export format, please open an issue on [GitHub](https://github.com/JaxRaffnix/SnapMerge/issues).
 
 ## Example
 
-Snapchat Download Folder:
+Snapchat Export Folder:
 
 ```
-my_data/
--- image1
--- movie1.mp4
--- image2.zip/
--- -- image2_main.jpg
--- -- image2_overlay.png
--- movie2.zip/
--- -- movie2_main.mp4
--- -- movie2_overlay.png
+snapchat_export/
+├── image1
+├── image2.zip/
+│   ├── image2_main.jpg
+│   └── image2_overlay.png
+├── movie1.mp4
+├── movie2.zip/
+│   ├── movie2_main.mp4
+│   └── movie2_overlay.png
+...
 ```
 
-Results after running SnapMerge:
+Results after running SnapMerge `python -m snapmerge.cli ./snapchat_export ./merged_media`:
 
 ```
-merged_data/
--- image1.jpg
--- movie1.mp4
--- image2.jpg
--- movie2.mp4
+merged_media/
+├── image1.jpg
+├── image2.jpg
+├── movie1.mp4
+├── movie2.mp4
+...
 ```
 
 ## Features
 
-- **ZIP Support**: Automatically extracts and processes ZIP archives, if they contain a "...main..." media file (see file types below) and an "...overlay..." PNG
-- **Image Merging**: Combines JPG/JPEG images with PNG overlays into single merged JPG files with alpha compositing
-- **Video Merging**: Composites MP4 videos with PNG overlays, preserving audio and duration
-- **Copy**: Overlaid media and standalone files are copied to the output directory
-- **Overwrite Control**: Option to skip existing files or overwrite them
+- **ZIP Support:** Automatically extracts and processes ZIP archives, containing a media file and an overlay file with alpha compositing. Writes result to output directory. Video and Image media files are supported.
+- **File Copying:** Copies standalone files to the output directory.
+- **Overwrite Control:** Option to skip existing files or overwrite them.
+- **File Extension Handling:** Adds missing file extensions based on file type.
 
 ## Installation
 
-### Requirements
-- Python 3.7+
-
-### Setup
+SnapMerge requires [Python 3.7+](https://www.python.org/downloads/) or later.
 
 1. Clone the repository:
 ```bash
@@ -51,21 +49,27 @@ git clone https://github.com/JaxRaffnix/SnapMerge.git
 cd SnapMerge
 ```
 
-2. Install dependencies:
+2. Create a virtual environment (optional but recommended):
+```bash
+python -m venv .venv
+.\.venv\Scripts\activate
+```
+
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
 ## Usage
 
-media must be in one of the following formats and contain "main" in the filename:
-- Images: JPG, JPEG
-- Videos: MP4
-Overlay file must be in PNG format and contain "overlay" in the filename.
- 
-Zip archive must contain exactly 2 files: one media file and one overlay file.
+- Media files must contain `"main"` in the filename:
+  - Images: `.jpg`, `.jpeg`
+  - Videos: `.mp4`
+- Overlay files must be PNGs and contain `"overlay"` in the filename.
+- ZIP archives must contain **exactly two files**: one media and one overlay.
+- The overwrite check compares file stems (names without extensions) in lowercase. The first part after splitting by "." is used.
 
-### Command Line
+### Command Line Interface
 
 Run the CLI to process your Snapchat export:
 
@@ -73,14 +77,14 @@ Run the CLI to process your Snapchat export:
 python -m snapmerge.cli <input_directory> <output_directory> [options]
 ```
 
-**Arguments:**
+**Arguments**
 - `input_directory`: Path to the directory containing exported Snapchat media
 - `output_directory`: Path where processed files will be saved
 
-**Options:**
+**Options**
 - `--overwrite` or `-o`: Overwrite existing files in the output directory (default: skip)
 
-Example usage:
+**Example**
 ```bash
 python -m snapmerge.cli ./snapchat_export ./merged_media --overwrite
 ```
@@ -101,21 +105,7 @@ process_data(
 )
 ```
 
-The subfunction `combine_media(media_path, overlay_path, output_path)` is also available for more granular control in the module import. For detailed usage, please refer to the doc strings.
-
-## Constrains and Assumptions
-
-- The overwrite check compares file stems (names without extensions) in lowercase
-- Overlay files should contain "overlay" in their filename
-- Media files should contain "main" in their filename
-- For videos, overlay positioning is centered
-- Temporary files are cleaned up automatically
-
-## Known Limitations
-
-- Overlay resizing for videos may cause permission errors on some systems
-- ZIP files must contain exactly 2 files (media and overlay)
-- The overwrite check is case-insensitive but not extremely robust
+The subfunction `combine_media(media_path, overlay_path, output_path)` is also available for customization. For detailed usage, please refer to the doc strings.
 
 ## License
 
@@ -129,5 +119,5 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 For issues or questions, please open an issue on the GitHub repository.
 
-## LLM
+## Acknowledgements
 AI language models were used extensively for boilerplate code generation and documentation drafting.

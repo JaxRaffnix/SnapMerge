@@ -16,23 +16,6 @@ class TestSnapMerge(unittest.TestCase):
         # Clean up temporary directory
         self.temp_dir.cleanup()
 
-    # def test_get_media_overlay(self):
-    #     folder = self.test_data_dir / "example_folder"
-    #     media, overlay = get_media_and_overlay_file(folder)
-    #     self.assertTrue(media.exists())
-    #     self.assertTrue(overlay.exists())
-    #     self.assertIn("main", media.name)
-    #     self.assertIn("overlay", overlay.name)
-
-    # def test_combine_image(self):
-    #     # Use a small image + overlay pair
-    #     media = self.test_data_dir / "sample_image.jpg"
-    #     overlay = self.test_data_dir / "overlay.png"
-    #     output_file = self.output_path / "combined.jpg"
-    #     combine_media(media, overlay, output_file)
-    #     self.assertTrue(output_file.exists())
-    #     self.assertTrue(output_file.suffix == ".jpg")
-
     # TODO: add cli test
 
     def test_process_data(self):
