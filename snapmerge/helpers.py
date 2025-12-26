@@ -35,8 +35,7 @@ def _is_image(image_path: Path) -> bool:
         return False
 
 
-
-def _get_media_overlay(dir_path: Path) -> tuple[Path, Path]:
+def _get_media_and_overlay_file(dir_path: Path) -> tuple[Path, Path]:
     """
     Given a directory path, return the media file (jpg or mp4) and overlay png file.
     """

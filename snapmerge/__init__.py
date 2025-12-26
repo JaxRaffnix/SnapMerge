@@ -1,9 +1,12 @@
-# TODO: module docstring
+"""
+SnapMerge
 
-from . import helpers
-from . import core
-from . import cli
+This module reconstructs exported Snapchat media by combining the original
+camera media (image or video) with its corresponding Snapchat overlay.
+It is designed for use with data obtained from Snapchat's official
+"Download My Data" export.
 
-__all__ = [
-    "process_data", "combine_media", "process_zip",
-]
+"""
+
+from .core import process_data, combine_media
+from .cli import *
