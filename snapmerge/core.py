@@ -7,98 +7,131 @@ import shutil
 from PIL import Image
 from moviepy import VideoFileClip, ImageClip, CompositeVideoClip
 
-from .helpers import _is_image, _get_image_extension, _get_media_and_overlay_file, _IMAGE_EXTS, _VIDEO_EXTS
+from .helpers import _is_image, _is_video, _is_media, _get_image_extension, _already_exists, _is_archive
+
+
+# ___________________________________________________________________
+# Find correct files
+
+
+def get_media_and_overlay_file(dir_path: Path) -> tuple[Path, Path]:
+    """
+    Retrieve the media file and overlay file from the specified directory.
+
+    This function searches for two specific types of files within the provided directory:
+    - A media file, which must be an image or video file containing the substring "main" in its filename.
+    - An overlay file, which must be an image file containing the substring "overlay" in its filename.
+
+    Args:
+        dir_path (Path): The directory path to search for the media and overlay files.
+    
+    Returns:
+        tuple[Path, Path]: A tuple containing the paths to the media file and overlay file.
+    
+    Raises:
+        ValueError: If the specified directory does not exist, is not a directory, 
+                     or does not contain the required media and overlay files exactly once.
+    """ 
+    if not dir_path.exists() or not dir_path.is_dir():
+        raise ValueError(f"Directory does not exist: {dir_path}")
+
+    files = list(dir_path.iterdir())
+
+    overlays = [f for f in files if "overlay" in f.name.lower() and _is_image(f)]
+    if len(overlays) != 1:
+        raise ValueError(f"Expected exactly 1 overlay file, found {len(overlays)} in {dir_path}")
+
+    media = [f for f in files if "main" in f.name.lower() and _is_media(f)]
+    if len(media) != 1:
+        raise ValueError(f"Expected exactly 1 media file, found {len(media)} in {dir_path}")
+
+    return media[0], overlays[0]
 
 
 # ___________________________________________________________________
 # Combine Media in ZIP
 
 
-def _process_zip(zip_path: Path, output_path: Path) -> Path:
+def _process_archive(archive_path: Path, output_path: Path) -> Path:
     """
-    Extracts and combines media files from a ZIP archive.
-    
-    Assumes the ZIP contains exactly two files: an overlay PNG and a media file
-    (JPG, PNG, or MP4). Combines them and saves the result to the output path.
+    Extract an archive and merge its media file with its overlay.
+
+    Supported archive formats depend on ``shutil.unpack_archive`` and
+    typically include ZIP and TAR-based archives.
 
     Args:
-        zip_path: Path to the ZIP file containing media and overlay files.
-        output_path: Path where the combined media will be saved.
+        archive_path (Path): Path to the archive file containing the media and overlay.
+        output_path (Path): Target path (without extension) for the merged output file.
 
     Returns:
-        Path to the output file.
+        Path: Path to the generated output file.
 
     Raises:
-        FileNotFoundError: If the ZIP file does not exist.
-        ValueError: If the file is not a valid ZIP, is empty, or doesn't contain exactly 2 files.
+        FileNotFoundError: If the archive does not exist or is not a file.
+        ValueError: If the archive cannot be unpacked, does not contain exactly two files, or does not contain a valid media/overlay pair.
     """
-    if not zip_path.exists():
-        raise FileNotFoundError(f"ZIP file not found: {zip_path}")
-    if not zipfile.is_zipfile(zip_path) or zip_path.suffix.lower() != ".zip":
-        raise ValueError(f"File is not a valid ZIP file: {zip_path}")
-    if zip_path.stat().st_size == 0:
-        raise ValueError(f"ZIP file is empty: {zip_path}")
+    if not archive_path.exists() or not archive_path.is_file():
+        raise FileNotFoundError(f"Archive dir not found: {archive_path}")
+    if not _is_archive(archive_path):
+        raise ValueError(f"Unsupported archive format: {archive_path}")
 
     with tempfile.TemporaryDirectory() as tmp:
-        with zipfile.ZipFile(zip_path) as zip:
-            zip.extractall(tmp)
+        shutil.unpack_archive(str(archive_path), tmp)
 
-        files = [Path(tmp) / f for f in os.listdir(tmp)]
-        if len(files) != 2:
-            raise ValueError(f"ZIP must contain exactly 2 files: {zip_path}")
+        tmp_path = Path(tmp)
+        if len(list(tmp_path.iterdir())) != 2:
+            raise ValueError(f"Archive must contain exactly 2 files: {archive_path}")
         
-        media, overlay = _get_media_and_overlay_file(Path(tmp))
-        
+        # TODO: move combine to parent function. add manual temp cleanup.
+        media, overlay = get_media_and_overlay_file(tmp_path)
         return combine_media(media, overlay, output_path)
-    
-
-# ___________________________________________________________________
-# Core
 
 
 def combine_media(media_path: Path, overlay_path: Path, output_path: Path) -> Path:
     """
-    Combines a media file with a PNG overlay.
+    Combines a media file with an overlay.
     
-    Overlays a PNG image on top of a media file (image or video) and saves
-    the result. For images, outputs a JPG. For videos, outputs an MP4 with
-    the overlay positioned at center.
+    Overlays an image on top of a media file (image or video) and saves
+    the result. For images, the output type is inferred from the media type. For videos, outputs an MP4 with
+    the overlay positioned at center. In both cases, the overlay is resized to match the media size if necessary.
 
     Args:
-        media_path: Path to the media file (JPG, PNG, or MP4).
-        overlay_path: Path to the overlay PNG file.
-        output_path: Path where the combined media will be saved.
+        media_path: Path to the media file (image or video).
+        overlay_path: Path to the overlay file.
+        output_path: Path where the combined media will be saved. May not include an extension!
 
     Returns:
-        Path to the output file.
+        Path to the output file with the appropriate extension.
 
     Raises:
         FileNotFoundError: If media or overlay file does not exist.
-        ValueError: If overlay is not PNG or media type is unsupported.
     """
     if not media_path.exists() or not media_path.is_file():
         raise FileNotFoundError(f"Media file not found: {media_path}")
     if not overlay_path.exists() or not overlay_path.is_file():
         raise FileNotFoundError(f"Overlay file not found: {overlay_path}")
-    if overlay_path.suffix.lower() != ".png":
-        raise ValueError(f"Overlay file is not a PNG: {overlay_path}")
-    if media_path.suffix.lower() not in _IMAGE_EXTS.union(_VIDEO_EXTS):
-        raise ValueError(f"Unsupported media type: {media_path}")
+    if output_path.suffix != "":
+        raise ValueError(f"Output path should not have an extension: {output_path}")
+    # TODO: allow output format specification?
+    
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if _is_image(media_path):
+    if _is_image(media_path):    
+        ext = _get_image_extension(media_path)
+
         with Image.open(overlay_path).convert("RGBA") as overlay:
             with Image.open(media_path).convert("RGBA") as media:
                 if media.size != overlay.size:
                     overlay = overlay.resize(media.size)
 
                 combined = Image.alpha_composite(media, overlay)
-                output_path = output_path.with_suffix(".jpg")
+                output_path = output_path.with_suffix(f".{ext}")
                 combined.convert("RGB").save(output_path)
 
-    elif media_path.suffix.lower() == ".mp4":
+    elif _is_video(media_path):
         video = VideoFileClip(media_path)
         with Image.open(overlay_path).convert("RGBA") as overlay:
-            if overlay.size != video.size:
+            if video.size != overlay.size:
                 overlay = overlay.resize(video.size)
         overlay_clip = ImageClip(overlay_path).with_duration(video.duration).with_position(("center", "center"))
         # .resize(newsize=video.size) #? this results in a permission error: "used by another process"
@@ -116,6 +149,10 @@ def combine_media(media_path: Path, overlay_path: Path, output_path: Path) -> Pa
         raise ValueError(f"Unsupported media type: {media_path}")
     
     return output_path
+
+
+# ___________________________________________________________________
+# Core Processing
 
 
 def process_data(input_dir: Path, output_dir: Path, overwrite: bool = False ):
@@ -145,28 +182,29 @@ def process_data(input_dir: Path, output_dir: Path, overwrite: bool = False ):
         raise ValueError(f"Input directory does not exist: {input_dir}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    existing = [f.lower().split(".")[0] for f in os.listdir(output_dir)]
 
-    for data in os.listdir(input_dir):
-        # TODO: Overwrite check is not very robust
-        if data.lower().split(".")[0] in existing and not overwrite:
+    for entry in input_dir.iterdir():
+        base_name = entry.stem
+
+        if _already_exists(entry, output_dir) and not overwrite:
             continue
 
-        if data.endswith("zip"):
-            _process_zip(input_dir / data, output_dir / data.replace(".zip", ""))
+        if _is_archive(entry):
+            _process_archive(entry, output_dir / base_name)
 
-        elif (input_dir / data).is_dir():
-            media, overlay = _get_media_and_overlay_file(input_dir / data)
-            combine_media(media, overlay, output_dir / data)
+        elif entry.is_dir():
+            media, overlay = get_media_and_overlay_file(entry)
+            combine_media(media, overlay, output_dir / base_name)
 
-        elif data.endswith("mp4") or data.endswith("mov"):
-            shutil.copy2(input_dir / data, output_dir / data)
+        elif _is_video(entry):
+            shutil.copy2(entry, output_dir / entry.name)
 
-        elif _is_image(input_dir / data):
-            ext = _get_image_extension(input_dir / data)
-            shutil.copy2(input_dir / data, output_dir / f"{data}.{ext}")
+        elif _is_image(entry):
+            # TODO: this silently assumes not extension in file name
+            ext = _get_image_extension(entry)
+            shutil.copy2(entry, output_dir / f"{entry.name}.{ext}")
 
         else:
-            # warnings.warn(f"Unsupported file type: {data}", category=UserWarning)
-            raise ValueError(f"Unsupported file type: {input_dir / data}")
+            raise ValueError(f"Unsupported file: {entry}")
         
+    return True

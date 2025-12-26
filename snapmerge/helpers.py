@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from moviepy import VideoFileClip
 from PIL import Image
 
 
@@ -7,12 +8,8 @@ from PIL import Image
 # Constants
 
 
-_IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
-_VIDEO_EXTS = {".mp4"}
-
-
 # ___________________________________________________________________
-# Helpers
+# Image and Video Identifier
 
 
 def _get_image_extension(image_path: Path) -> str:
@@ -33,26 +30,42 @@ def _is_image(image_path: Path) -> bool:
             return True
     except Exception:
         return False
+    
+
+def _is_video(video_path: Path) -> bool:
+    if not video_path.exists() or not video_path.is_file():
+        return False
+
+    try:
+        clip = VideoFileClip(video_path)
+        clip.close()
+        return True
+    except Exception:
+        return False
+    
+
+def _is_media(path: Path) -> bool:
+    return _is_image(path) or _is_video(path)
 
 
-def _get_media_and_overlay_file(dir_path: Path) -> tuple[Path, Path]:
+# ___________________________________________________________________
+# Check Duplicates
+
+
+def _already_exists(name: Path, output_dir: Path) -> bool:
     """
-    Given a directory path, return the media file (jpg or mp4) and overlay png file.
+    Check whether a file with the given base name already exists in the output
+    directory, regardless of file extension.
     """
-    if not dir_path.exists() or not dir_path.is_dir():
-        raise ValueError(f"Directory does not exist: {dir_path}")
+    name = name.stem.lower()
 
-    media_file = None
-    overlay_file = None
+    return any(f.is_file() and f.stem.lower() == name for f in output_dir.iterdir())
 
-    for file in os.listdir(dir_path):
-        file_path = dir_path / file
-        if _is_image(file_path) and file_path.suffix.lower() == ".png" and "overlay" in file.lower():
-            overlay_file = file_path
-        elif file_path.suffix.lower() in _IMAGE_EXTS.union(_VIDEO_EXTS) and "main" in file.lower():
-            media_file = file_path
 
-    if media_file is None or overlay_file is None:
-        raise ValueError(f"Directory must contain 'main' media and 'overlay' PNG files: {dir_path}")
+# ___________________________________________________________________
+# Archive Checker
 
-    return media_file, overlay_file
+def _is_archive(path: Path) -> bool:
+    """Check if the given path is a supported archive file and is valid."""
+    EXT = {".zip", ".tar", ".tar.gz", ".tgz"}
+    return path.suffix.lower() in EXT
