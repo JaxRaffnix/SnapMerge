@@ -6,7 +6,7 @@ This tool was last tested with the official Snapchat “Download My Data” expo
 
 ## Example
 
-Snapchat Export Folder:
+Folder with Exported Snapchat Data:
 
 ```
 snapchat_export/
@@ -35,8 +35,9 @@ merged_media/
 ## Features
 
 - **Archive Support** Automatically extracts archives supported by `shutil.unpack_archive` (e.g. ZIP, TAR)
-- **Overlay Composition** Combines media files (image or video) with their corresponding overlay images using alpha compositing
-- **File Copying** Copies standalone files directly to the output directory.
+- **Image and Video Support** Supports images with `pillow` and movie files wirh `moviepy`
+- **Overlay Composition** If applicable, Combines media files (image or video) with their corresponding overlay images using alpha compositing
+- **File Copying** Copies standalone files and combined media to the output directory.
 - **Extension Handling** Adds missing file extensions based on file type.
 - **Overwrite Control** Option to skip existing files or overwrite them.
 
@@ -69,9 +70,15 @@ SnapMerge requires [Python 3.7+](https://www.python.org/downloads/) or higher.
 
 ## Usage
 
-The media and overlay file inside a directory or archive are inferred dynamically based on their filenames:
+the function expects a directory with any, all or none of the following content:
+- image files
+- movie files
+- a dir or archive containg a media file and an overlay image
+
+To use the composition feature,the media and overlay file inside a directory or archive are inferred dynamically based on their filenames:
 - Overlay files must contain `"overlay"` in the filename
-- Media files must contain `"main"` in the filename 
+- Media files must contain `"main"` in the filename
+the filename of the resulting combined media file is equal to the dir/archive name.
 
 ### Command Line Interface
 
