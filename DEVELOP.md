@@ -1,9 +1,9 @@
 ## Future Enhancements
 
-- [ ] Improved logging and logging to file
-- [ ] More granular error handling with warnings instead of exceptions
-- [ ] Comprehensive test suite
-- [ ] Support for additional media formats
+- [ ] Add logging and logging to file
+- [ ] use warnings instead of aborting if a file error occurs 
+- [ ] increase test coverage
+- [ ] don't hardcode allowed archive formats
 
 ## Use test cases:
 
