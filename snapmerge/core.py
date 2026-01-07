@@ -2,6 +2,7 @@ import tempfile
 from pathlib import Path
 import shutil
 from contextlib import contextmanager
+import warnings
 
 from PIL import Image
 from moviepy import VideoFileClip, ImageClip, CompositeVideoClip
@@ -158,7 +159,6 @@ def process_data(input_dir: Path, output_dir: Path, overwrite: bool = False ):
     
     Raises:
         ValueError: If the input directory does not exist or is not a directory.
-        ValueError: If an unsupported file type is encountered during processing.    
     """
     if not input_dir.exists() or not input_dir.is_dir():
         raise ValueError(f"Input directory does not exist: {input_dir}")
@@ -166,28 +166,32 @@ def process_data(input_dir: Path, output_dir: Path, overwrite: bool = False ):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for entry in input_dir.iterdir():
-        base_name = entry.stem
+        try:
+            base_name = entry.stem
 
-        if _already_exists(base_name, output_dir) and not overwrite:
-            continue
+            if _already_exists(base_name, output_dir) and not overwrite:
+                continue
 
-        if _is_archive(entry):
-            with _unpack_archive(entry) as temp:
-                media, overlay = get_media_and_overlay_file(temp)
+            if _is_archive(entry):
+                with _unpack_archive(entry) as temp:
+                    media, overlay = get_media_and_overlay_file(temp)
+                    combine_media(media, overlay, output_dir / base_name)
+
+            elif entry.is_dir():
+                media, overlay = get_media_and_overlay_file(entry)
                 combine_media(media, overlay, output_dir / base_name)
 
-        elif entry.is_dir():
-            media, overlay = get_media_and_overlay_file(entry)
-            combine_media(media, overlay, output_dir / base_name)
+            elif _is_video(entry):
+                shutil.copy2(entry, output_dir / entry.name)
 
-        elif _is_video(entry):
-            shutil.copy2(entry, output_dir / entry.name)
+            elif _is_image(entry):
+                ext = _get_image_extension(entry)
+                shutil.copy2(entry, output_dir / f"{entry.stem}.{ext}")
 
-        elif _is_image(entry):
-            ext = _get_image_extension(entry)
-            shutil.copy2(entry, output_dir / f"{entry.stem}.{ext}")
-
-        else:
-            raise ValueError(f"Unsupported file: {entry}")
+            else:
+                raise ValueError(f"Unsupported file: {entry}")
+        except Exception as e:
+            warnings.warn(f"Skipping {entry} because an error occurred: {e}")
+            continue
         
     return True
